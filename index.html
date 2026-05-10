@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+    content="MotionVLA: Vision-Language-Action Model for Humanoid Motion">
+  <meta name="keywords" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MotionVLA: Vision-Language-Action Model for Humanoid Motion</title>
+
+  <!--   Global site tag (gtag.js) - Google Analytics-->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y5ZVQZ7NHC"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'G-Y5ZVQZ7NHC');
+  </script>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+
+  <link rel="stylesheet" href="./assets/css/bulma.min.css">
+  <link rel="stylesheet" href="./assets/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./assets/css/bulma-slider.min.css">
+  <link rel="stylesheet" href="./assets/css/fontawesome.all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./assets/css/index.css">
+
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+  <script defer src="./assets/js/fontawesome.all.min.js"></script>
+  <script src="./assets/js/bulma-carousel.min.js"></script>
+  <script src="./assets/js/bulma-slider.min.js"></script>
+  <script src="./assets/js/index.js"></script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MotionVLA: Vision-Language-Action Model for Humanoid Motion</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+      * {
+          margin: 0;
+          padding: 0;
+          box-sizing: border-box;
+      }
+      
+      body, html {
+          margin: 0 !important;
+          padding: 0 !important;
+          height: 100%;
+      }
+      
+      /* 重置Bulma的hero样式 */
+      .hero.is-fullheight {
+          margin: 0 !important;
+          padding: 0 !important;
+          min-height: 100vh;
+      }
+    
+      :root {
+          --primary-color: #3b82f6;
+          --secondary-color: #1d4ed8;
+          --accent-color: #60a5fa;
+          --text-color: #1f2937;
+          --light-bg: #f9fafb;
+          --border-color: #e5e7eb;
+          --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+          --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      }
+      
+      .container {
+          max-width: 1200px;
+          margin: 0 auto;
+          padding: 0 20px;
+      }
+      
+      header {
+          background: linear-gradient(135deg, #3b82f6, #2563eb);
+          position: relative;
+          overflow: hidden;
+          padding: 80px 0;
+          text-align: center;
+          margin-bottom: 40px;
+          box-shadow: var(--shadow-lg);
+      }
+      
+      header::before {
+          content: '';
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1NiIgaGVpZ2h0PSIxMDAiPgo8cmVjdCB3aWR0aD0iNTYiIGhlaWdodD0iMTAwIiBmaWxsPSIjMWUzYThjIj48L3JlY3Q+CjxwYXRoIGQ9Ik0yOCA2NkwwIDUwTDAgMTZMMjggMEw1NiAxNkw1NiA1MEwyOCA2NkwyOCAxMDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzM4YmRmOCIgc3Ryb2tlLXdpZHRoPSIyIj48L3BhdGg+CjxwYXRoIGQ9Ik0yOCAwTDI4IDY2TDAgNTBMMCA1MEwyOCA2NkwyOCA2Nkw1NiA1MEw1NiA1MEwyOCA2NkwyOCA2NiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMzhhZmZmIiBzdHJva2Utd2lkdGg9IjEiPjwvcGF0aD4KPC9zdmc+') repeat;
+          opacity: 0.05;
+      }
+      
+      .header-content {
+          position: relative;
+          z-index: 2;
+      }
+      
+      header h1 {
+          font-size: 3.0rem;
+          font-weight: 800;
+          margin-bottom: 10px;
+          letter-spacing: -1px;
+          color: white;
+          text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+          background: linear-gradient(to right, #ffffff, #bfdbfe);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          display: inline-block;
+      }
+      
+      header h2 {
+          font-size: 1.5rem;
+          font-weight: 400;
+          max-width: 800px;
+          margin: 0 auto;
+          color: rgba(255, 255, 255, 0.9);
+          border: none;
+          text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      
+      section {
+          margin: 60px 0;
+      }
+      
+      h2 {
+          font-size: 2.2rem;
+          color: var(--secondary-color);
+          margin-bottom: 30px;
+          position: relative;
+          padding-bottom: 15px;
+          font-weight: 700;
+          letter-spacing: -0.5px;
+      }
+      
+      h2::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 70px;
+          height: 4px;
+          background-color: var(--accent-color);
+          border-radius: 2px;
+      }
+      
+      h3 {
+          font-size: 1.8rem;
+          color: var(--primary-color);
+          margin: 30px 0 20px;
+          font-weight: 600;
+      }
+      
+      p {
+          margin-bottom: 20px;
+          font-size: 1.05rem;
+      }
+
+      .authors {
+          font-size: 1.1em;
+          color: white;
+          margin-bottom: 20px;
+      }
+
+      .institution {
+          color: white;
+          font-style: italic;
+      }
+      
+      .image-container {
+          text-align: center;
+          margin: 7px 0;
+          position: relative;
+          transition: transform 0.3s ease;
+      }
+      
+      .image-container:hover {
+          transform: translateY(-5px);
+      }
+      
+      .image-container img {
+          max-width: 86%;
+          border-radius: 12px;
+          box-shadow: var(--shadow-lg);
+          transition: all 0.3s ease;
+      }
+      
+      .image-container:hover img {
+          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+      }
+      
+      .image-container p {
+          font-style: italic;
+          margin-top: 15px;
+          color: #6b7280;
+          max-width: 100%;
+          margin-left: auto;
+          margin-right: auto;
+          font-size: 0.95rem;
+      }
+
+      .lexart-image-container {
+          text-align: center;
+          margin: 40px 0;
+          position: relative;
+          transition: transform 0.3s ease;
+      }
+      
+      .lexart-image-container:hover {
+          transform: translateY(-5px);
+      }
+      
+      .lexart-image-container img {
+          max-width: 40%;
+          border-radius: 12px;
+          box-shadow: var(--shadow-lg);
+          transition: all 0.3s ease;
+      }
+      
+      .lexart-image-container:hover img {
+          box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+      }
+      
+      .lexart-image-container p {
+          font-style: italic;
+          margin-top: 15px;
+          color: #6b7280;
+          max-width: 100%;
+          margin-left: auto;
+          margin-right: auto;
+          font-size: 0.95rem;
+      }
+      
+      .abstract {
+          background-color: var(--light-bg);
+          padding: 40px;
+          border-radius: 16px;
+          margin: 40px 0;
+          box-shadow: var(--shadow-sm);
+          border-left: 5px solid var(--accent-color);
+      }
+      
+      .abstract h3 {
+          margin-top: 0;
+          color: var(--secondary-color);
+          display: flex;
+          align-items: center;
+      }
+      
+      .abstract h3::before {
+          content: '\f02d';
+          font-family: 'Font Awesome 6 Free';
+          font-weight: 900;
+          margin-right: 10px;
+          color: var(--accent-color);
+      }
+      
+      .features {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 30px;
+          margin: 40px 0;
+      }
+      
+      .feature-card {
+          background-color: white;
+          border-radius: 12px;
+          padding: 30px;
+          box-shadow: var(--shadow-md);
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+          border: 1px solid var(--border-color);
+      }
+      
+      .feature-card:hover {
+          transform: translateY(-5px);
+          box-shadow: var(--shadow-lg);
+      }
+      
+      .feature-card h4 {
+          font-size: 1.3rem;
+          margin-bottom: 15px;
+          color: var(--secondary-color);
+          display: flex;
+          align-items: center;
+      }
+      
+      .feature-card h4 i {
+          margin-right: 10px;
+          color: var(--accent-color);
+      }
+      
+      .feature-card p {
+          color: #4b5563;
+      }
+      
+      .table-container {
+          overflow-x: auto;
+          margin: 30px 0;
+          border-radius: 12px;
+          box-shadow: var(--shadow-md);
+      }
+      
+      table {
+          width: 100%;
+          border-collapse: collapse;
+          text-align: center;
+          background-color: white;
+      }
+      
+      th {
+          background-color: var(--primary-color);
+          color: white;
+          padding: 15px;
+          font-weight: 600;
+          position: sticky;
+          top: 0;
+      }
+      
+      td {
+          padding: 12px 15px;
+          border-bottom: 1px solid var(--border-color);
+      }
+      
+      tr:nth-child(even) {
+          background-color: var(--light-bg);
+      }
+      
+      tr:hover {
+          background-color: #eef2ff;
+      }
+      
+      .code-block {
+          background-color: #1e293b;
+          color: #e2e8f0;
+          padding: 25px;
+          border-radius: 12px;
+          font-family: 'Fira Code', monospace;
+          overflow-x: auto;
+          margin: 30px 0;
+          box-shadow: var(--shadow-md);
+          line-height: 1.6;
+      }
+      
+      .team-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+          gap: 25px;
+          margin: 40px 0;
+      }
+      
+      .team-member {
+          background-color: white;
+          border-radius: 12px;
+          padding: 20px;
+          box-shadow: var(--shadow-sm);
+          border: 1px solid var(--border-color);
+          transition: transform 0.3s ease;
+      }
+      
+      .team-member:hover {
+          transform: translateY(-5px);
+          box-shadow: var(--shadow-md);
+      }
+      
+      .team-member h4 {
+          color: var(--secondary-color);
+          margin-bottom: 5px;
+      }
+      
+      .team-member p {
+          color: #6b7280;
+          font-size: 0.9rem;
+          margin: 0;
+      }
+      
+      footer {
+          background-color: #1e293b;
+          color: white;
+          text-align: center;
+          padding: 40px 20px;
+          margin-top: 80px;
+      }
+      
+      footer p {
+          margin: 0;
+          opacity: 0.8;
+      }
+      
+      .btn {
+          display: inline-block;
+          background-color: var(--primary-color);
+          color: white;
+          padding: 12px 25px;
+          border-radius: 8px;
+          text-decoration: none;
+          font-weight: 600;
+          margin: 10px;
+          transition: all 0.3s ease;
+          box-shadow: var(--shadow-sm);
+      }
+      
+      .btn:hover {
+          background-color: var(--secondary-color);
+          transform: translateY(-2px);
+          box-shadow: var(--shadow-md);
+      }
+      
+      .btn-secondary {
+          background-color: rgba(255, 255, 255, 0.15);
+          color: white;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          backdrop-filter: blur(5px);
+      }
+      
+      .btn-secondary:hover {
+          background-color: rgba(255, 255, 255, 0.25);
+      }
+      
+      .header-buttons {
+          margin-top: 30px;
+          display: flex;
+          flex-wrap: wrap;
+          justify-content: center;
+          gap: 10px;
+      }
+      
+      .highlight {
+          color: var(--primary-color);
+          font-weight: 600;
+      }
+      
+      .section-divider {
+          height: 2px;
+          background: linear-gradient(to right, transparent, var(--accent-color), transparent);
+          margin: 80px 0;
+          opacity: 0.5;
+      }
+
+      .realworld-group {
+          margin: 42px 0;
+      }
+
+      .realworld-prompt {
+          color: #1f2937;
+          font-size: 1.1rem;
+          font-weight: 600;
+          margin-bottom: 16px;
+          text-align: center;
+      }
+
+      .realworld-carousel {
+          overflow: hidden;
+          position: relative;
+      }
+
+      .realworld-track {
+          display: grid;
+          gap: 14px;
+          grid-auto-columns: calc((100% - 14px) / 2);
+          grid-auto-flow: column;
+          transition: transform 0.45s ease;
+      }
+
+      .realworld-pair {
+          box-sizing: border-box;
+          display: grid;
+          gap: 10px;
+          grid-template-columns: minmax(0, 1.32fr) minmax(0, 1fr);
+      }
+
+      .realworld-view-labels {
+          display: grid;
+          gap: 10px;
+          grid-template-columns: minmax(0, 1.32fr) minmax(0, 1fr);
+          grid-column: 1 / -1;
+      }
+
+      .realworld-view-labels span {
+          color: #1d4ed8;
+          font-size: 0.95rem;
+          font-weight: 700;
+          text-align: center;
+      }
+
+      .realworld-pair video {
+          background: #0f172a;
+          border-radius: 8px;
+          box-shadow: var(--shadow-md);
+          display: block;
+          width: 100%;
+      }
+
+      .realworld-pair:not(:first-child) {
+          border-left: 1px solid #d1d5db;
+          padding-left: 14px;
+      }
+
+      .realworld-dots {
+          display: flex;
+          gap: 8px;
+          justify-content: center;
+          margin-top: 16px;
+      }
+
+      .realworld-dot {
+          background: #bfdbfe;
+          border: 0;
+          border-radius: 999px;
+          cursor: pointer;
+          height: 10px;
+          padding: 0;
+          transition: all 0.2s ease;
+          width: 10px;
+      }
+
+      .realworld-dot.active {
+          background: #2563eb;
+          width: 28px;
+      }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                gap: 20px;
+                padding: 20px;
+            }
+
+            .realworld-track {
+                grid-auto-columns: 100%;
+            }
+
+            .realworld-pair {
+                grid-template-columns: 1fr;
+            }
+
+            .realworld-pair:not(:first-child) {
+                border-left: 0;
+                padding-left: 0;
+            }
+        }
+
+
+/*       /* 悬浮+发光效果（亮蓝色） */
+      tr:hover {
+        box-shadow: 0px 4px 15px rgba(0, 136, 255, 0.6); /* 边框发光的效果 */
+        border-radius: 5px; /* 使边框略微圆润 */
+        z-index: 1; /* 将当前行叠在上层，确保不被覆盖 */
+        transform: scale(1.03); /* 略微放大当前行 */
+      }
+      
+      /* Highlight 行的基础样式 */
+      tr.highlight-row {
+        background-color: #f8faff; /* 设置行背景色为浅蓝色 */
+      }
+      
+      /* Highlight 行悬浮效果 */
+      tr.highlight-row:hover {
+        background-color: #e0f3ff; /* 悬浮时背景色过渡为更浅蓝 */
+        box-shadow: 0px 4px 20px rgba(0, 136, 255, 0.7); /* 发光效果变得更明显 */
+        transform: scale(1.0); /* 略微放大效果 */
+      } */
+
+    /* 悬浮的发光效果（亮蓝色） */
+
+
+/*       /* 悬浮的发光效果（亮蓝色） */
+      tr:hover {
+        box-shadow: 0px 4px 15px rgba(0, 136, 255, 0.6); 
+        border-radius: 5px;
+        z-index: 1;
+        transform: scale(1.0);
+      }
+      
+      /* Highlight 行基础样式 */
+      tr.highlight-row {
+        background-color: #e0f3ff; /* 设置行背景色为浅蓝色 */
+        box-shadow: 0px 4px 20px rgba(0, 136, 255, 0.7); /* 持续的发光效果 */
+        font-weight: bold; /* 文字加粗 */
+        font-size: 15px; /* 调整字体大小，保持与普通行视觉一致 */
+        z-index: 1; /* 确保叠加顺序 */
+        transform: scale(1.0); /* 始终的放大效果 */
+      }
+      
+      /* 选择特定单元格微调（如必要） */
+        tr.highlight-row td {
+          /* 如果仍需调整某列视觉对齐情况，可以在此处微调 */
+        } */
+
+              /* 分组标题白底深蓝字，去掉背景浅蓝 */
+        tbody tr th.has-background-light {
+            background: #ffffff !important;
+            color: #1a237e;
+            font-weight: 700;
+            font-size: 1rem;
+            letter-spacing: 0.5px;
+            border: none !important;
+          }
+
+          /* 行悬浮白底不变，字体加深 */
+        tbody tr:hover:not(.highlight-row) {
+            background-color: #ffffff !important;
+            color: #0d47a1 !important;
+            cursor: default;
+            transition: color 0.3s ease;
+          }
+
+          /* 突出最后一行（我们的模型），始终生效 */
+        tbody tr.highlight-row {
+            background-color: #bbdefb !important;
+            color: #0d47a1 !important;
+            font-weight: 700;
+            font-size: 0.95rem;
+            box-shadow: 0 0 12px 4px rgba(33, 150, 243, 0.7);
+            transform: scale(1.0);
+            transition: none;
+            /* 取消过渡动画 */
+          }
+
+              
+      /* Responsive adjustments */
+      @media (max-width: 768px) {
+          header {
+              padding: 40px 0;
+          }
+          
+          header h1 {
+              font-size: 2.5rem;
+          }
+          
+          header h2 {
+              font-size: 1.2rem;
+          }
+          
+          h2 {
+              font-size: 1.8rem;
+          }
+          
+          h3 {
+              font-size: 1.5rem;
+          }
+          
+          .features {
+              grid-template-columns: 1fr;
+          }
+          
+          .team-grid {
+              grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+          }
+          
+          .header-buttons {
+              flex-direction: column;
+              align-items: center;
+          }
+          
+          .btn {
+              width: 80%;
+              text-align: center;
+              margin: 5px 0;
+          }
+      }
+  </style>
+</head>
+<body>
+  <!-- Fullscreen Hero with Video Background -->
+  <section class="hero is-fullheight" style="position: relative; overflow: hidden;">
+    <video autoplay muted loop playsinline style="
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    filter: brightness(0.48) saturate(0.9);
+    z-index: 0;
+    pointer-events: none;">
+      <source src="assets/video/exo_3x3_1920x1080.mp4" type="video/mp4">
+    </video>
+
+    <!-- Blue translucent overlay -->
+    <div style="
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: linear-gradient(to bottom right, rgba(15, 23, 42, 0.62), rgba(30, 64, 175, 0.42));
+    z-index: 1;">
+    </div>
+
+    <!-- Main content -->
+    <div class="hero-body" style="position: relative; z-index: 2;">
+      <div class="container has-text-centered">
+        <h1 class="title is-1 has-text-weight-bold" style="color: #f8f8f6; font-style: italic;">
+          <span style="color: #FF3E3E; font-size: 80px;">M</span>
+          <span style="color: #FF914D; font-size: 80px;">o</span>
+          <span style="color: #FFC94D; font-size: 80px;">t</span>
+          <span style="color: #B6E24D; font-size: 80px;">i</span>
+          <span style="color: #4DDC95; font-size: 80px;">o</span>
+          <span style="color: #4DB8FF; font-size: 80px;">n</span>
+          <span style="color: #FF007F; font-size: 80px;">V</span>
+          <span style="color: #FF00FF; font-size: 80px;">L</span>
+          <span style="color: #FF9900; font-size: 80px;">A</span>
+        </h1>
+        <h1 class="title is-1 has-text-weight-bold" style="color: #f8f8f6; font-style: italic; font-size: 56px;">
+          Vision-Language-Action Model for Humanoid Motion
+        </h1>
+        
+        <style>
+          .publication-authors {
+            color: #ffffff;
+          }
+
+          .publication-authors sup {
+            color: #ffffff;
+          }
+
+          .publication-authors .author-block {
+            display: inline-block;
+            margin: 0 0.45rem;
+          }
+
+          .publication-authors a {
+            color: #ffffff !important;
+            text-decoration: none !important;
+          }
+
+          .publication-authors a:hover,
+          .publication-authors a:visited,
+          .publication-authors a:active {
+            color: #ffffff !important;
+            text-decoration: none !important;
+          }
+        </style>
+
+        <!-- Author list -->
+        <div class="is-size-5 publication-authors">
+          <span class="author-block">
+            Nonghai Zhang<sup>1*</sup>
+          </span>
+          <span class="author-block">
+            Siyu Zhai<sup>1*</sup>
+          </span>
+          <span class="author-block">
+            Yanjun Li<sup>1*</sup>
+          </span>
+          <span class="author-block">
+            <a href="https://steve-zeyu-zhang.github.io/" target="_blank">Zeyu Zhang</a><sup>1*†</sup>
+          </span>
+          <span class="author-block">
+            Zhihan Yin<sup>1</sup>
+          </span>
+          <span class="author-block">
+            Yandong Guo<sup>2</sup>
+          </span>
+          <span class="author-block">
+            Boxin Shi<sup>1</sup>
+          </span>
+          <span class="author-block">
+            Hao Tang<sup>1‡</sup>
+          </span>
+        </div>
+
+        <!-- Affiliations -->
+        <div></div>
+        <div class="is-size-5 publication-authors">
+          <span class="author-block">
+            <sup>1</sup> Peking University&nbsp;&nbsp;
+            <sup>2</sup> AI<sup>2</sup> Robotics
+          </span>
+        </div>
+
+        <!-- Contribution note -->
+        <div class="is-size-5 publication-authors">
+          <span class="author-block"><sup>*</sup>Equal contribution.</span>
+          <span class="author-block"><sup>†</sup>Project lead.</span>
+          <span class="author-block"><sup>‡</sup>Corresponding author.</span>
+        </div>
+
+
+        <!-- Buttons -->
+        <div class="buttons is-centered mt-5">
+          <span class="link-block">
+            <a href="https://arxiv" target="_blank"
+              class="external-link button is-normal is-rounded has-background-white has-text-black">
+              <span class="icon">
+                <i class="ai ai-arxiv"></i>
+              </span>
+              <span>Paper</span>
+            </a>
+          </span>
+          <!-- Code Link. -->
+          <span class="link-block">
+            <a href="https://github.com/AIGeeksGroup/MotionVLA" target="_blank"
+              class="external-link button is-normal is-rounded has-background-white has-text-black">
+              <span class="icon">
+                <i class="fab fa-github"></i>
+              </span>
+              <span>Code</span>
+            </a>
+          </span>
+          <!-- Huggingface Demo Link. -->
+          <span class="link-block">
+            <a href="https://huggingface.co/AIGeeksGroup/MotionVLA" target="_blank"
+              class="external-link button is-normal is-rounded has-background-white has-text-black">
+              <span class="icon">
+                <img src="assets/hf-logo.svg" style="display:block;width:330px;height:240px" />
+              </span>
+              <span>Model</span>
+            </a>
+          </span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+    <div class="container">
+        <section id="results">
+            <h2>Real World Deployment</h2> 
+            <p>Real-robot deployment of MotionVLA on a Unitree G1 EDU humanoid robot.</p>
+            <div class="realworld-group">
+                <p class="realworld-prompt">The person walks straight ahead to the other end of the room.</p>
+                <div class="realworld-carousel" data-carousel>
+                    <div class="realworld-track">
+                        <div class="realworld-pair">
+                            <div class="realworld-view-labels"><span>Exo</span><span>Ego</span></div>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/exo/exo_prompt1_test1.mp4"></video>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/ego/ego_prompt1_test1.mp4"></video>
+                        </div>
+                        <div class="realworld-pair">
+                            <div class="realworld-view-labels"><span>Exo</span><span>Ego</span></div>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/exo/exo_prompt1_test2.mp4"></video>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/ego/ego_prompt1_test2.mp4"></video>
+                        </div>
+                        <div class="realworld-pair">
+                            <div class="realworld-view-labels"><span>Exo</span><span>Ego</span></div>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/exo/exo_prompt1_test3.mp4"></video>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/ego/ego_prompt1_test3.mp4"></video>
+                        </div>
+                    </div>
+                    <div class="realworld-dots">
+                        <button class="realworld-dot active" type="button" aria-label="Show tests 1 and 2" data-slide="0"></button>
+                        <button class="realworld-dot" type="button" aria-label="Show tests 2 and 3" data-slide="1"></button>
+                        <button class="realworld-dot" type="button" aria-label="Show tests 3 and 1" data-slide="2"></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="realworld-group">
+                <p class="realworld-prompt">The person turns and then walks to the end of the room.</p>
+                <div class="realworld-carousel" data-carousel>
+                    <div class="realworld-track">
+                        <div class="realworld-pair">
+                            <div class="realworld-view-labels"><span>Exo</span><span>Ego</span></div>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/exo/exo_prompt2_test1.mp4"></video>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/ego/ego_prompt2_test1.mp4"></video>
+                        </div>
+                        <div class="realworld-pair">
+                            <div class="realworld-view-labels"><span>Exo</span><span>Ego</span></div>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/exo/exo_prompt2_test2.mp4"></video>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/ego/ego_prompt2_test2.mp4"></video>
+                        </div>
+                        <div class="realworld-pair">
+                            <div class="realworld-view-labels"><span>Exo</span><span>Ego</span></div>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/exo/exo_prompt2_test3.mp4"></video>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/ego/ego_prompt2_test3.mp4"></video>
+                        </div>
+                    </div>
+                    <div class="realworld-dots">
+                        <button class="realworld-dot active" type="button" aria-label="Show tests 1 and 2" data-slide="0"></button>
+                        <button class="realworld-dot" type="button" aria-label="Show tests 2 and 3" data-slide="1"></button>
+                        <button class="realworld-dot" type="button" aria-label="Show tests 3 and 1" data-slide="2"></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="realworld-group">
+                <p class="realworld-prompt">The person walks straight ahead and then turns.</p>
+                <div class="realworld-carousel" data-carousel>
+                    <div class="realworld-track">
+                        <div class="realworld-pair">
+                            <div class="realworld-view-labels"><span>Exo</span><span>Ego</span></div>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/exo/exo_prompt3_test1.mp4"></video>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/ego/ego_prompt3_test1.mp4"></video>
+                        </div>
+                        <div class="realworld-pair">
+                            <div class="realworld-view-labels"><span>Exo</span><span>Ego</span></div>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/exo/exo_prompt3_test2.mp4"></video>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/ego/ego_prompt3_test2.mp4"></video>
+                        </div>
+                        <div class="realworld-pair">
+                            <div class="realworld-view-labels"><span>Exo</span><span>Ego</span></div>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/exo/exo_prompt3_test3.mp4"></video>
+                            <video controls autoplay muted loop playsinline src="assets/video/demo/ego/ego_prompt3_test3.mp4"></video>
+                        </div>
+                    </div>
+                    <div class="realworld-dots">
+                        <button class="realworld-dot active" type="button" aria-label="Show tests 1 and 2" data-slide="0"></button>
+                        <button class="realworld-dot" type="button" aria-label="Show tests 2 and 3" data-slide="1"></button>
+                        <button class="realworld-dot" type="button" aria-label="Show tests 3 and 1" data-slide="2"></button>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                document.querySelectorAll('[data-carousel]').forEach((carousel) => {
+                    const track = carousel.querySelector('.realworld-track');
+                    const dots = Array.from(carousel.querySelectorAll('.realworld-dot'));
+                    let activeSlide = 0;
+
+                    const stepDistance = 'calc(((100% - 14px) / 2 + 14px) * -1)';
+
+                    const setTrackOffset = (offset, animate = true) => {
+                        track.style.transition = animate ? 'transform 0.45s ease' : 'none';
+                        track.style.transform = offset;
+                    };
+
+                    const updateDots = (index) => {
+                        dots.forEach((dot, dotIndex) => {
+                            dot.classList.toggle('active', dotIndex === index);
+                        });
+                    };
+
+                    const rotateForward = () => {
+                        setTrackOffset(`translateX(${stepDistance})`, true);
+                        window.setTimeout(() => {
+                            track.appendChild(track.firstElementChild);
+                            setTrackOffset('translateX(0)', false);
+                            window.requestAnimationFrame(() => {
+                                track.style.transition = 'transform 0.45s ease';
+                            });
+                        }, 460);
+                        activeSlide = (activeSlide + 1) % dots.length;
+                        updateDots(activeSlide);
+                    };
+
+                    const showSlide = (targetSlide) => {
+                        const steps = (targetSlide - activeSlide + dots.length) % dots.length;
+                        for (let step = 0; step < steps; step += 1) {
+                            track.appendChild(track.firstElementChild);
+                        }
+                        activeSlide = targetSlide;
+                        setTrackOffset('translateX(0)', false);
+                        updateDots(activeSlide);
+                    };
+
+                    dots.forEach((dot) => {
+                        dot.addEventListener('click', () => {
+                            showSlide(Number(dot.dataset.slide));
+                        });
+                    });
+
+                    setInterval(() => {
+                        rotateForward();
+                    }, 10000);
+                });
+            </script>
+
+            <h2>MuJoCo Simulation</h2>
+            <p>All qualitative motion visualizations in this paper are produced using MuJoCo, a physics engine widely used in locomotion and character animation research.</p>
+
+            <h3>Text to Humanoid Motion</h3>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-bottom: 30px;">
+                <div>
+                    <video controls autoplay muted loop playsinline style="width: 100%; border-radius: 12px; box-shadow: var(--shadow-md);" src="assets/video/mujoco_video/t2m/robot_1.mp4"></video>
+                    <p style="margin-top: 12px;">The ballerina extends her arms and turns to the left, then rises onto her toes and performs a series of ballet movements.</p>
+                </div>
+                <div>
+                    <video controls autoplay muted loop playsinline style="width: 100%; border-radius: 12px; box-shadow: var(--shadow-md);" src="assets/video/mujoco_video/t2m/robot_2.mp4"></video>
+                    <p style="margin-top: 12px;">The man walks into the room, approaches a table, picks up an object, then walks towards a projection on the wall. He interacts with the object in his hands while standing near the projection.</p>
+                </div>
+            </div>
+
+            <h3>Scene-Conditioned Motion</h3>
+            <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin-bottom: 30px; align-items: start;">
+                <div>
+                    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+                        <img src="assets/video/mujoco_video/scene_conditioned/robot_scene_conditioned_1.jpg" alt="Scene-conditioned motion scene 1" style="width: 100%; aspect-ratio: 5 / 4; height: auto; object-fit: cover; border-radius: 12px; box-shadow: var(--shadow-md);">
+                        <video controls autoplay muted loop playsinline style="width: 100%; border-radius: 12px; box-shadow: var(--shadow-md);" src="assets/video/mujoco_video/scene_conditioned/robot_scene_conditioned_1.mp4"></video>
+                    </div>
+                    <p style="margin-top: 12px;">Generate motion for: The person takes off a shirt and puts it on their head, then bends down to pick up something from the ground.</p>
+                </div>
+                <div>
+                    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px;">
+                        <img src="assets/video/mujoco_video/scene_conditioned/robot_scene_conditioned_2.jpg" alt="Scene-conditioned motion scene 2" style="width: 100%; aspect-ratio: 5 / 4; height: auto; object-fit: cover; border-radius: 12px; box-shadow: var(--shadow-md);">
+                        <video controls autoplay muted loop playsinline style="width: 100%; border-radius: 12px; box-shadow: var(--shadow-md);" src="assets/video/mujoco_video/scene_conditioned/robot_scene_conditioned_2.mp4"></video>
+                    </div>
+                    <p style="margin-top: 12px;">Generate motion for: The man walks towards the camera.</p>
+                </div>
+            </div>
+
+            <h2>MotionVLA & DSFT</h2>
+            <div class="image-container">
+                <img src="assets/images/pipeline_v2_page-0001.jpg" alt="Overview of MotionVLA">
+            </div>
+            <p><strong>Overview of MotionVLA.</strong> (a) DSFT performs dual-stream frequency tokenization by decomposing motion into Base and Phys components and converting them into discrete tokens. (b) During training, MotionVLA learns to autoregressively predict the unified motion token sequence under text and scene-image conditioning, supervised by DSFT tokens derived from ground-truth motion. (c) At inference time, the model generates Base and Phys tokens conditioned on multimodal inputs, which are then decoded and recombined to reconstruct the final motion sequence.</p>
+
+
+
+            
+        </section>
+
+      <!-- <section id="citation">
+        <h2>Acknowledgements</h2>
+        This work was supported by xxx
+      </section>  -->
+      
+      <section id="citation">
+          <h2>Citation</h2>
+          <div class="code-block">
+              @misc{motionvla2026,<br>
+                &nbsp;title={MotionVLA: Vision-Language-Action Model for Humanoid Motion},<br>
+                &nbsp;author={Nonghai Zhang and Siyu Zhai and Yanjun Li and Zeyu Zhang and Zhihan Yin and Yandong Guo and Boxin Shi and Hao Tang},<br>
+                &nbsp;journal={Tech Report},<br>
+                &nbsp;year={2026}<br>
+              }
+          </div>
+      </section>
+
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>MotionVLA: Vision-Language-Action Model for Humanoid Motion</p>
+        </div>
+    </footer>
+</body>
+</html>
