@@ -1,23 +1,23 @@
-# MotionVLA: End-to-End Vision-Language-Action Motion Generation
+# MotionVLA: Vision-Language-Action Model for Humanoid Motion
 
 This is the official repository for the paper:
-> **MotionVLA: End-to-End Vision-Language-Action Motion Generation with Dual-Stream FAST Tokenization**
+> **MotionVLA: Vision-Language-Action Model for Humanoid Motion**
 >
-> AIGeeksGroup
+> [Nonghai Zhang](https://github.com/sleepyDogseasea)\*, [Siyu Zhai](https://github.com/almightyfish)\*, [Zeyu Zhang](https://steve-zeyu-zhang.github.io/)\*, and [Hao Tang](https://ha0tang.github.io/)<sup>#</sup>
 >
 > \*Equal contribution. †Project lead. <sup>#</sup>Corresponding author.
 >
 > ### [Paper]() | [Website](https://aigeeksgroup.github.io/MotionVLA/) | [HuggingFace](https://huggingface.co/AIGeeksGroup/MotionVLA)
 
 > [!NOTE]
-> 💪 MotionVLA generates expressive human motion end-to-end from visual and language inputs by combining **Qwen3.5-VL** perception with a **Dual-Stream FAST Tokenizer** (DS-FAST) and **LoRA fine-tuning**, achieving strong performance on motion generation benchmarks.
+> 💪 MotionVLA generates humanoid motion from a scene image and a text instruction by combining a **Qwen3.5** autoregressive backbone with **DSFT (Dual-Stream Frequency-domain Tokenizer)**, which decouples low-frequency pose semantics from high-frequency physical dynamics.
 
 ## ✏️ Citation
 If you find our code or paper helpful, please consider starring ⭐ us and citing:
 ```bibtex
 @article{motionvla2026,
-  title={MotionVLA: End-to-End Vision-Language-Action Motion Generation with Dual-Stream FAST Tokenization},
-  author={AIGeeksGroup},
+  title={MotionVLA: Vision-Language-Action Model for Humanoid Motion},
+  author={Zhang, Nonghai and Zhai, Siyu and Zhang, Zeyu and Tang, Hao},
   year={2026}
 }
 ```
@@ -25,88 +25,101 @@ If you find our code or paper helpful, please consider starring ⭐ us and citin
 
 ## 🤸 Introduction to MotionVLA
 
-Vision-Language Models (VLMs) have made impressive progress on multimodal understanding, yet directly mapping visual and textual context into **continuous human motion** remains challenging: motion is high-dimensional, temporally structured, and spans both semantic intent (what to do) and physical dynamics (how it moves). Existing motion generators typically tokenize the full pose stream as one sequence, conflating these two modes and limiting controllability.
+Generating realistic humanoid motion from scene images and text involves both **low-frequency pose semantics** and **high-frequency physical dynamics**. Many existing methods tokenize motion with a single shared codebook, forcing heterogeneous motion signals into the same quantization space. Our frequency-domain analysis of human motion shows a clear mismatch: five DCT coefficients capture **93%** of joint-position energy but only **37%** of joint-velocity energy, biasing single-codebook quantization toward pose statistics and under-representing high-frequency velocity components.
 
-To address this, we propose **MotionVLA**, an end-to-end Vision-Language-Action framework that pairs a frozen **Qwen3.5-VL** backbone with a **Dual-Stream FAST Tokenizer (DS-FAST)** and a lightweight **Mixture-of-Experts (MoE)** residual layer. DS-FAST decomposes 276-dim motion into a **Base stream** (joint rotations, positions, root orientation — 201-dim, semantic intent) and a **Phys stream** (joint/root velocities — 75-dim, physical dynamics) via DCT, allowing each stream to be quantized with its own vocabulary and predicted by its own head. LoRA fine-tuning over Qwen3.5-VL keeps training efficient while a T5 decoder path is also supported for ablation.
+To address this, we propose **DSFT (Dual-Stream Frequency-domain Tokenizer)**, which separates motion into a **Base** stream (joint rotations + positions + root orientation/coordinates) and a **Phys** stream (joint velocities + root velocities), and compresses them independently with **DCT truncation + BPE**. We then present **MotionVLA**, a **Qwen3.5**-based autoregressive model that arranges the two streams in a unified sequence
 
-The result is a single model that can be conditioned on **images + text instructions** and produce coherent, controllable motion sequences, with clean separation between *intent* and *dynamics*.
+```
+[ M_BOS, b_1, …, b_N, M_SEP, p_1, …, p_M, M_EOS ]
+```
+
+so that Phys tokens are predicted **after** all Base tokens through causal attention — a hierarchical *semantic-to-physical* generation order.
+
+Despite using a lightweight 2B backbone, MotionVLA reduces the Diversity gap to real data by **over 50%** on HumanML3D and improves Motion-Condition Consistency by **3.8%** on MBench, supporting frequency-aware dual-stream decoupling as an effective formulation for autoregressive motion generation.
 
 ### Key Features
 
-- **End-to-End VLA Pipeline**: Image + text → Qwen3.5-VL → motion tokens → motion, all in one model
-- **Dual-Stream FAST Tokenizer**: Frequency-domain decomposition of motion into Base (semantic) and Phys (dynamic) streams
-- **MoE Residual Layer**: 8-expert MoE on top of the decoder for capacity without full fine-tuning cost
-- **Two Training Paths**: Qwen LoRA (CUDA) and Qwen3.5-VL + T5 decoder (MPS/Mac), plus an `ms-swift` recipe
-- **Two-Phase Training**: Phase 1 embed warmup, Phase 2 LoRA SFT — stable and reproducible
-
-![architecture](./figs/overview.png)
+- **DSFT Tokenizer**: Frequency-domain decomposition of motion into Base (semantic) and Phys (dynamic) streams with independent DCT truncation (default `K_base=5`, `K_phys=25`) and BPE compression.
+- **Qwen3.5 VLA Backbone**: A standard autoregressive transformer extended with motion tokens, supporting scene-image + text conditioning.
+- **Unified Sequence**: Base-then-Phys layout enables phase-aware causal generation; a logit mask enforces the BASE → SEP → PHYS → EOS order at inference.
+- **Two-Phase ms-swift Training**: Phase 1 warms up new motion-token embeddings, Phase 2 runs LoRA SFT on the full backbone.
+- **Lightweight Default**: 2B backbone is sufficient for SOTA-competitive results; ablations cover 0.8B / 2B / 4B / 9B.
 
 ## 📰 News
 
 <b>2026/06/01:</b> 🔔 Project website is live at [aigeeksgroup.github.io/MotionVLA](https://aigeeksgroup.github.io/MotionVLA/).
 
-<b>2026/06/01:</b> 📌 Code, models, and dataset are now available on [HuggingFace](https://huggingface.co/AIGeeksGroup/MotionVLA).
+<b>2026/06/01:</b> 📌 Code is released; models and tokenizer checkpoints will be uploaded to [HuggingFace](https://huggingface.co/AIGeeksGroup/MotionVLA) shortly.
 
 ## 📋 TODO List
 
 > [!IMPORTANT]
 > We are actively developing and improving MotionVLA. Stay tuned for updates!
 
-- [x] Release MotionVLA training and inference code
-- [x] Release DS-FAST tokenizer and training scripts
-- [x] Release `ms-swift` training recipe (Phase 1 + Phase 2)
+- [x] Release MotionVLA training code (ms-swift two-phase pipeline)
+- [x] Release DSFT tokenizer training & inference code
+- [x] Release dual-stream frequency analysis scripts
 - [ ] Upload paper to arXiv and finalize project page
-- [ ] Release pre-trained MotionVLA checkpoints on HuggingFace
-- [ ] Release MotionVLA dataset on HuggingFace
+- [ ] Release pre-trained MotionVLA checkpoints (2B / 4B / 9B) on HuggingFace
+- [ ] Release the ViMoGen-derived training JSONL on HuggingFace
+- [ ] Release motion visualization & MuJoCo simulation toolkit
 - [ ] Add interactive demo on HuggingFace Spaces
-- [ ] Release motion visualization tools
 
 ## 🏗️ Architecture
 
 ```
-Image + Text → Qwen3.5-VL (frozen)
-                   ↓ hidden_states[-2]
-          VisualFeatureResampler (Conv1d + interpolate)
-                   ↓ encoder_hidden_states (B, 256, 768)
-          T5 Decoder (full fine-tuning) / Qwen LoRA
-          MotionMoELayer (MoE residual, 8 experts)
-                   ↓
-     Base Head (4096 vocab) | Phys Head (2048 vocab)
+   Scene Image  +  Text Instruction
+                 │
+                 ▼
+        Qwen3.5 (default 2B)              ┌── new motion vocabulary ──┐
+   Vocabulary V = V_LM + V_motion + 3     │  Base : 4096 tokens       │
+                                          │  Phys : 4096 tokens       │
+                                          │  M_BOS / M_SEP / M_EOS    │
+                                          └───────────────────────────┘
+                 │
+                 ▼   masked next-token prediction
+   [ M_BOS, b_1, …, b_N, M_SEP, p_1, …, p_M, M_EOS ]
+                 │
+                 ▼   phase-aware logit mask at inference
+              BPE⁻¹ + IDCT  (per-stream)
+                 │
+                 ▼
+         Reconstructed motion ∈ ℝ^{T × D}
 ```
 
-The DS-FAST tokenizer decomposes 276-dim motion into two streams via DCT:
-- **Base (201-dim)**: joint rotations + positions + root orientation → semantic intent
-- **Phys (75-dim)**: joint/root velocities → physical dynamics
+DSFT decomposes motion into two streams via DCT (HumanML3D 263-dim → Base 190 / Phys 73; ViMoGen 276-dim → Base 201 / Phys 75):
+
+- **Base stream**: joint rotations + positions + root orientation/coordinates → low-frequency pose semantics (~86–93% of energy in the first 5 DCT coefficients).
+- **Phys stream**: joint velocities + root velocities → high-frequency physical dynamics (only ~37% energy in the first 5 coefficients).
+
+Each stream is DCT-truncated (`K_base=5`, `K_phys=25`) and BPE-encoded independently, yielding two compact discrete vocabularies.
 
 ## 📁 Repository Structure
 
 ```
 MotionVLA/
-├── model/
-│   ├── motion_qwen.py        # Qwen3.5-VL + LoRA + MoE (main training path)
-│   └── motion_vla.py         # Qwen3.5-VL + T5 decoder + MoE
-├── dataset/
-│   ├── motion_qwen_dataset.py  # Dataset for Qwen LoRA training
-│   └── motion_vla_dataset.py   # Dataset for T5 training
 ├── tokenizer/
-│   ├── ds_fast_tokenizer.py    # DS-FAST dual-stream tokenizer core
-│   ├── train_tokenizer.py      # Train tokenizer from raw 276-dim data
-│   ├── tokenize_dataset.py     # Batch tokenize a dataset
-│   └── 276to263/               # 276-dim ↔ 263-dim conversion tools
+│   ├── ds_fast_tokenizer.py    # DSFT dual-stream tokenizer (DSFT class)
+│   ├── train_tokenizer.py      # Train DSFT from raw motion data
+│   ├── tokenize_dataset.py     # Batch tokenize a motion dataset
+│   └── 276to263/               # 276-dim ↔ 263-dim conversion utilities
 ├── training/
-│   ├── train_qwen.py           # Qwen LoRA trainer (CUDA, recommended)
-│   ├── train_t5.py             # T5 decoder trainer (MPS/Mac)
-│   ├── warmup_embed.py         # Phase 1: embed warmup
-│   ├── prepare_swift_data.py   # Convert dataset to ms-swift JSONL format
-│   ├── train_swift_phase1.sh   # ms-swift Phase 1: embed warmup
-│   ├── train_swift_phase2.sh   # ms-swift Phase 2: LoRA SFT
-│   └── train_swift_h100.sh     # Combined H100 training script
-├── analysis/                   # Frequency analysis scripts
-├── theory/                     # Theoretical analysis (DCT, MoE, tokenizer)
+│   ├── prepare_swift_data.py   # Convert tokenized dataset → ms-swift JSONL
+│   ├── train_swift_phase1.sh   # Phase 1: motion-token embed warmup
+│   ├── train_swift_phase2.sh   # Phase 2: LoRA SFT
+│   └── train_swift_h100.sh     # Combined Phase 1 + Phase 2 (H100)
+├── analysis/                   # Frequency analysis & DSFT reconstruction quality
+│   ├── freq_analysis_combined.py
+│   └── dsfast/                 # Per-dim low-freq ratio, energy coverage, rRMSE
+├── theory/                     # Supporting theoretical analyses
+│   ├── theory1_dualstream.py
+│   ├── theory3_tokenizer.py
+│   └── theory4_dualstream_vs_single.py
 ├── docs/
 │   ├── ARCHITECTURE.md
 │   ├── DATA_FORMAT.md
 │   └── TRAINING.md
+├── requirements.txt
 └── README.md                   # This file
 ```
 
@@ -114,136 +127,165 @@ MotionVLA/
 
 ### Environment Setup
 
-Our code is tested with CUDA 11.8 and Python 3.10. To run the codes, first install the required packages:
+Tested with CUDA 11.8 / 12.x and Python 3.10:
 
 ```bash
-# Create conda environment
 conda create -n motionvla python=3.10
 conda activate motionvla
 
-# Install PyTorch
+# PyTorch (pick the build matching your CUDA)
 pip install torch>=2.1.0 torchvision --index-url https://download.pytorch.org/whl/cu118
 
-# Install other dependencies
+# Other dependencies
 pip install -r requirements.txt
 ```
 
 Key dependencies (see [requirements.txt](./requirements.txt)):
+
 - `torch>=2.1.0`
 - `transformers>=4.45.0`
 - `peft>=0.12.0`
 - `ms-swift>=2.0.0`
 - `qwen-vl-utils`
+- `tokenizers`, `scipy`
+
+### Download Models
+
+```bash
+# Qwen3.5 backbone (replace size with the one you want to use)
+huggingface-cli download <qwen3.5-checkpoint-name> --local-dir checkpoints/Qwen3.5-VL-8B
+
+# (Once released) DSFT tokenizer & MotionVLA checkpoints
+huggingface-cli download AIGeeksGroup/MotionVLA --local-dir checkpoints/MotionVLA
+```
 
 ### Data Preparation
 
-#### Download MotionVLA Models & Data
+The dataset JSON format and motion `.pt` layout are described in [`docs/DATA_FORMAT.md`](./docs/DATA_FORMAT.md). At a high level:
 
-Pretrained models, the DS-FAST tokenizer, and the dataset are hosted on [HuggingFace](https://huggingface.co/AIGeeksGroup/MotionVLA):
+1. Each entry has `id`, `text`, `motion_path`, optional `image_path`.
+2. Motion `.pt` files contain a tokenized sequence `seq = [BOS, base…, SEP, phys…, EOS]` produced by DSFT.
 
-```bash
-# MotionVLA model & tokenizer
-huggingface-cli download AIGeeksGroup/MotionVLA --local-dir checkpoints/MotionVLA
+## 🔧 DSFT Tokenizer
 
-# Qwen3.5-VL backbone
-huggingface-cli download Qwen/Qwen3.5-VL-2B-Instruct --local-dir checkpoints/Qwen3.5-VL-8B
-
-# T5 motion decoder (for the T5 training path)
-huggingface-cli download wbz0505/t2m-ft-from-GSPretrained-base \
-    --local-dir checkpoints/t2m-ft-from-GSPretrained-base
-```
-
-For the dataset JSON format and motion file layout, see [`docs/DATA_FORMAT.md`](./docs/DATA_FORMAT.md).
-
-## 🔧 DS-FAST Tokenizer Training
-
-To train the DS-FAST tokenizer from raw 276-dim motion data:
+Train DSFT on raw motion data:
 
 ```bash
 python tokenizer/train_tokenizer.py \
     --motiondata_root data/motions \
     --output_dir      tokenizer/checkpoints \
-    --K_base 5 --K_phys 15 \
+    --K_base 5 --K_phys 25 \
     --base_vocab 4096 --phys_vocab 2048
 ```
 
-This produces dual-stream codebooks (`base_vocab=4096`, `phys_vocab=2048`) used by both training paths.
+Then tokenize a dataset:
 
-## 💻 Training
-
-### Recommended: ms-swift Pipeline
-
-The recommended training pipeline uses [ms-swift](https://github.com/modelscope/ms-swift) and runs in two phases.
-
-**Step 1: Prepare data**
 ```bash
-python training/prepare_swift_data.py \
-    --json  data/dataset.json \
-    --root  . \
-    --out   data/swift
+python tokenizer/tokenize_dataset.py \
+    --json       data/dataset.json \
+    --motiondata data/motions \
+    --tok_dir    tokenizer/checkpoints \
+    --out_dir    data/motions_tokenized \
+    --out_json   data/dataset_tokenized.json \
+    --workers    4
 ```
 
-**Step 2: Embed warmup (Phase 1, ~500 steps)**
+## 💻 Training (ms-swift, two-phase)
+
+The official training pipeline uses [ms-swift](https://github.com/modelscope/ms-swift) and runs in two phases.
+
+**Step 1 — Prepare ms-swift JSONL**
+
+```bash
+python training/prepare_swift_data.py \
+    --json   data/dataset_tokenized.json \
+    --root   . \
+    --out    data/swift \
+    --split  0.9
+```
+
+This writes `train.jsonl`, `val.jsonl`, and `motion_tokens.txt` (the new motion-token vocabulary) into `data/swift/`.
+
+**Step 2 — Phase 1: Embed warmup**
+
+Freeze all transformer layers; train only `embed_tokens` and `lm_head` rows for the new motion tokens (LR `1e-3`, ~500 steps):
+
 ```bash
 bash training/train_swift_phase1.sh
 ```
 
-**Step 3: LoRA SFT (Phase 2)**
+Outputs land under `checkpoints/phase1_embed/`.
+
+**Step 3 — Phase 2: LoRA SFT**
+
+Load the Phase 1 checkpoint and run LoRA SFT (`rank=32`, `alpha=64`, `target_modules=all-linear`, `LR=2e-4`, 3 epochs):
+
 ```bash
 bash training/train_swift_phase2.sh
 ```
 
-**Combined H100 script:**
+Outputs land under `checkpoints/swift_lora/`.
+
+**Combined H100 recipe** (Phase 1 + Phase 2 in one script):
+
 ```bash
 bash training/train_swift_h100.sh
 ```
 
-### Custom PyTorch Training
+For configuration details and hyper-parameters see [`docs/TRAINING.md`](./docs/TRAINING.md).
 
-```bash
-# Qwen LoRA (CUDA)
-python training/train_qwen.py \
-    --model_path checkpoints/Qwen3.5-VL-8B \
-    --json_path  data/dataset.json \
-    --epochs 30
+## 📊 Benchmark Results
 
-# T5 decoder (MPS / Mac)
-python training/train_t5.py \
-    --qwen_model_path checkpoints/Qwen3.5-VL-8B \
-    --t5_model_path   checkpoints/t2m-ft-from-GSPretrained-base \
-    --json_path       data/dataset.json \
-    --epochs 50
-```
+### MBench (scene-conditioned, ViMoGen-228K)
 
-For training hyperparameters and detailed configuration, see [`docs/TRAINING.md`](./docs/TRAINING.md).
+| Method | M-C Cons. ↑ | M-Gen. ↑ | Jitter ↓ | Dynamic ↑ | F-Float ↓ | F-Slide ↓ | B-Pen ↓ | P-Qual ↓ |
+|---|---|---|---|---|---|---|---|---|
+| MDM (ICLR'23) | 0.42 | 0.51 | 0.0136 | 0.0376 | 0.156 | 0.0136 | 1.68 | 2.67 |
+| T2M-GPT (CVPR'23) | 0.39 | 0.38 | 0.0156 | 0.0349 | 0.209 | 0.0156 | 1.33 | 2.43 |
+| MoMask (CVPR'24) | 0.38 | 0.44 | 0.0147 | 0.0396 | 0.178 | 0.0147 | 1.48 | 2.67 |
+| MotionDiffuse (TPAMI'24) | 0.44 | 0.42 | 0.0111 | 0.0289 | 0.126 | 0.0063 | 1.35 | 2.21 |
+| MotionLCM (ECCV'24) | 0.48 | 0.55 | 0.0218 | 0.0439 | 0.193 | 0.0202 | 1.73 | 2.40 |
+| FineMoGen (NeurIPS'24) | 0.37 | 0.42 | 0.0118 | 0.0386 | 0.281 | 0.0091 | 1.18 | 2.28 |
+| MotionCraft (CVPR'25) | 0.42 | 0.45 | 0.0132 | 0.0420 | 0.402 | 0.0090 | 1.15 | 2.12 |
+| ViMoGen (ICLR'26) | 0.53 | **0.68** | 0.0108 | 0.0251 | 0.204 | 0.0064 | 1.78 | 2.38 |
+| ViMoGen-light (ICLR'26) | 0.47 | 0.55 | 0.0129 | 0.0294 | 0.155 | 0.0051 | 1.43 | **2.10** |
+| **MotionVLA (Ours)** † | **0.55** | 0.66 | **0.0110** | 0.0419 | **0.149** | **0.0049** | **1.34** | 2.14 |
 
-## 📊 Evaluation
+†: uses additional visual (scene) input. Best in **bold**.
 
-Evaluation scripts and metrics for motion generation (FID, R-Precision, MM-Dist, Diversity) will be released alongside the pre-trained checkpoints. See the project [website](https://aigeeksgroup.github.io/MotionVLA/) for the latest benchmark numbers.
+### HumanML3D (text-to-motion)
+
+| Method | R-Top1 ↑ | R-Top2 ↑ | R-Top3 ↑ | FID ↓ | MM-Dist ↓ | Diversity → | MModality ↑ |
+|---|---|---|---|---|---|---|---|
+| Real | 0.511 | 0.703 | 0.797 | 0.002 | 2.974 | 9.503 | – |
+| TM2T (ECCV'22) | 0.424 | 0.618 | 0.729 | 1.501 | 3.467 | 8.589 | 2.424 |
+| MDM (ICLR'23) | – | – | 0.611 | 0.544 | 5.566 | – | 2.799 |
+| MotionDiffuse (TPAMI'24) | 0.491 | 0.681 | 0.782 | 0.630 | 3.113 | 9.410 | 1.553 |
+| T2M-GPT (CVPR'23) | 0.492 | 0.679 | 0.775 | 0.141 | 3.121 | 9.722 | 1.831 |
+| FineMoGen (NeurIPS'24) | 0.504 | 0.690 | 0.784 | 0.151 | 2.998 | 9.263 | 2.696 |
+| MoMask (CVPR'24) | 0.521 | 0.713 | 0.807 | 0.045 | 2.958 | – | 1.241 |
+| DisCoRD (ICCV'25) | 0.524 | 0.715 | 0.809 | 0.032 | 2.938 | – | 1.288 |
+| GenM3 (ICCV'25) | 0.511 | 0.705 | 0.804 | 0.046 | 2.852 | 9.675 | – |
+| MG-MotionLLM (CVPR'25) | 0.516 | 0.706 | 0.802 | 0.303 | 2.952 | 9.960 | 2.125 |
+| **MotionVLA (Ours)** | 0.507 | 0.699 | 0.798 | 0.071 | 2.906 | **9.548** | **2.821** |
+
+MotionVLA achieves the Diversity score closest to real data and the highest MModality among generated methods, despite using only a 2B backbone.
+
+### Backbone Scale Ablation (MBench)
+
+| Backbone | Params | M-C Cons. ↑ | M-Gen. ↑ | Jitter ↓ | F-Slide ↓ |
+|---|---|---|---|---|---|
+| Qwen3.5-0.8B | 0.8B | 0.51 | 0.60 | 0.0122 | 0.0058 |
+| **Qwen3.5-2B (default)** | 2B | 0.55 | 0.66 | 0.0110 | 0.0049 |
+| Qwen3.5-4B | 4B | 0.55 | 0.66 | 0.0109 | 0.0049 |
+| Qwen3.5-9B | 9B | 0.56 | 0.68 | 0.0107 | 0.0047 |
 
 ## 🎯 Use Cases
 
-MotionVLA can be applied to a wide range of motion-generation tasks:
-
-### 1. Animation & Content Creation
-- Text-to-motion for previsualization
-- Image-conditioned motion synthesis for game / film
-- Rapid prototyping of character behaviors
-
-### 2. Robotics & Embodied AI
-- Vision-language conditioned motion priors for humanoid policies
-- Motion retargeting from instruction
-- Behavior libraries for simulation
-
-### 3. AR / VR & Interactive Media
-- Avatar animation from natural-language prompts
-- Real-time motion-from-instruction for virtual characters
-- Motion-driven storytelling
-
-### 4. Research
-- Studying disentanglement of semantic intent vs. physical dynamics
-- Frequency-domain motion tokenization
-- VLM-conditioned action generation
+- **Animation & content creation**: Text- and image-conditioned humanoid motion for previs, games, and film.
+- **Robotics & embodied AI**: Vision-language motion priors for humanoid policies; deployment on platforms such as Unitree G1.
+- **AR / VR & interactive media**: Avatar animation from natural-language prompts and scene context.
+- **Research**: Studying disentanglement of semantic intent vs. physical dynamics, and frequency-aware motion tokenization.
 
 ## 🌟 Star History
 
@@ -251,7 +293,7 @@ MotionVLA can be applied to a wide range of motion-generation tasks:
 
 ## 🤝 Contributing
 
-We welcome contributions to MotionVLA! Please feel free to:
+We welcome contributions. Please feel free to:
 - Report bugs and issues
 - Submit pull requests
 - Suggest new features
@@ -264,15 +306,15 @@ This project is released under the MIT License. See [LICENSE](./LICENSE) for det
 ## 😘 Acknowledgement
 
 We thank the authors of the following projects for their open-source contributions:
-- [Qwen](https://github.com/QwenLM/Qwen) for the Qwen3.5-VL backbone
-- [MS-SWIFT](https://github.com/modelscope/ms-swift) for the training framework
+- [Qwen](https://github.com/QwenLM/Qwen) for the Qwen3.5 backbone
+- [ms-swift](https://github.com/modelscope/ms-swift) for the training framework
 - [PEFT](https://github.com/huggingface/peft) for LoRA implementations
-- [T5](https://github.com/google-research/text-to-text-transfer-transformer) for the decoder backbone
-- The motion-generation research community for datasets and prior work on motion tokenization
+- [HumanML3D](https://github.com/EricGuo5513/HumanML3D) and ViMoGen for datasets and benchmarks
+- The motion-generation research community for prior work on motion tokenization
 
 ## 📧 Contact
 
 For questions and discussions, please:
 - Open an issue on GitHub
 - Visit our [project website](https://aigeeksgroup.github.io/MotionVLA/)
-- Browse our models and datasets on [HuggingFace](https://huggingface.co/AIGeeksGroup/MotionVLA)
+- Browse our models on [HuggingFace](https://huggingface.co/AIGeeksGroup/MotionVLA)
