@@ -1,15 +1,15 @@
 """
-DS-FAST Tokenizer Reconstruction Quality Evaluation
-====================================================
-Evaluates DCT-based compression on HumanML3D 263D test set.
+DSFT Tokenizer Reconstruction Quality Evaluation
+================================================
+Evaluates DCT-based compression on the HumanML3D 263D test set.
 
 Split strategy: data-driven from freq_analysis_hml3d.py (threshold=0.6)
   Base dims (low-freq dominant, ~190D): root_height + ric_data + rot_6d
   Phys dims (high-freq dominant, ~73D):  root_rot_vel + root_lin_vel + vel_data + foot_contact
 
-K values match DS-FAST v2:
-  K_base = 5  (same as base tokenizer)
-  K_phys = 25 (same as phys tokenizer)
+Default K values match DSFT (paper):
+  K_base = 5
+  K_phys = 25
 
 Output: results/reconstruction_metrics.json, results/per_sample.csv
 """
@@ -29,7 +29,7 @@ TEST_FILE = os.path.join(STAT_DIR, "test.txt")
 OUT_DIR   = os.path.join(os.path.dirname(__file__), "results")
 os.makedirs(OUT_DIR, exist_ok=True)
 
-# ── DS-FAST v2 hyperparameters ─────────────────────────────────────────
+# ── DSFT hyperparameters ───────────────────────────────────────────────
 K_BASE = 5
 K_PHYS = 25
 
@@ -80,7 +80,7 @@ def dct_compress(motion: np.ndarray, K: int) -> np.ndarray:
 
 
 def reconstruct_263(motion: np.ndarray) -> np.ndarray:
-    """Apply DS-FAST-style DCT compression on 263D HumanML3D motion."""
+    """Apply DSFT-style DCT compression on 263D HumanML3D motion."""
     recon = motion.copy()
     base_arr = motion[:, BASE_DIMS]
     phys_arr = motion[:, PHYS_DIMS]
@@ -214,7 +214,7 @@ print(f"Saved: {csv_path}")
 
 # ── Print paper-ready table ─────────────────────────────────────────────
 print("\n" + "="*60)
-print("DS-FAST Reconstruction Quality on HumanML3D Test Set")
+print("DSFT Reconstruction Quality on HumanML3D Test Set")
 print("="*60)
 print(f"Sequences evaluated:      {len(per_sample_rows)}")
 print(f"Base stream:              {len(BASE_DIMS)}D, K={K_BASE}")

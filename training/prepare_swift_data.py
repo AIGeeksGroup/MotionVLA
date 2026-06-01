@@ -1,7 +1,10 @@
 """
-Convert motion dataset to ms-swift JSONL format.
+Convert a tokenized motion dataset to ms-swift JSONL format.
 
-Token mapping:
+Tokenized .pt files (produced by tokenizer/tokenize_dataset.py) carry
+token IDs in the tokenizer's intermediate namespace. This script remaps
+them to the Qwen vocabulary used during ms-swift training:
+
   Qwen base token (248320 + i) → <mot_b_{i:04d}>
   Qwen phys token (252416 + i) → <mot_p_{i:04d}>
   MOTION_BOS (256512)          → <mot_bos>
@@ -20,28 +23,33 @@ Usage:
 import os, json, random, argparse
 import torch
 
+# Qwen-vocabulary motion token offsets (used by ms-swift training).
 BASE_OFFSET   = 248320
 PHYS_OFFSET   = 252416
 MOTION_BOS_ID = 256512
 MOTION_SEP_ID = 256513
 MOTION_EOS_ID = 256514
 
-T5_BASE_OFFSET = 32100
-T5_PHYS_OFFSET = 36196
-T5_SEP_ID      = 32099
-T5_BOS_ID      = 0
-T5_EOS_ID      = 1
+# Intermediate-namespace constants used by tokenizer/tokenize_dataset.py.
+# (Inherited from the FAST-style numbering; not related to any T5 model.)
+NS_BASE_OFFSET = 32100
+NS_PHYS_OFFSET = 36196
+NS_SEP_ID      = 32099
+NS_BOS_ID      = 0
+NS_EOS_ID      = 1
 
 
-def remap_t5_to_qwen(seq: torch.Tensor) -> torch.Tensor:
+def remap_to_qwen(seq: torch.Tensor) -> torch.Tensor:
+    """Remap a tokenized sequence from the intermediate namespace to the
+    Qwen vocabulary used during ms-swift training."""
     out = seq.clone()
-    phys_mask = seq >= T5_PHYS_OFFSET
-    out[phys_mask] = PHYS_OFFSET + (seq[phys_mask] - T5_PHYS_OFFSET)
-    base_mask = (seq >= T5_BASE_OFFSET) & ~phys_mask
-    out[base_mask] = BASE_OFFSET + (seq[base_mask] - T5_BASE_OFFSET)
-    out[seq == T5_BOS_ID] = MOTION_BOS_ID
-    out[seq == T5_EOS_ID] = MOTION_EOS_ID
-    out[seq == T5_SEP_ID] = MOTION_SEP_ID
+    phys_mask = seq >= NS_PHYS_OFFSET
+    out[phys_mask] = PHYS_OFFSET + (seq[phys_mask] - NS_PHYS_OFFSET)
+    base_mask = (seq >= NS_BASE_OFFSET) & ~phys_mask
+    out[base_mask] = BASE_OFFSET + (seq[base_mask] - NS_BASE_OFFSET)
+    out[seq == NS_BOS_ID] = MOTION_BOS_ID
+    out[seq == NS_EOS_ID] = MOTION_EOS_ID
+    out[seq == NS_SEP_ID] = MOTION_SEP_ID
     return out
 
 
@@ -63,7 +71,7 @@ def load_motion_seq(motion_path: str) -> torch.Tensor | None:
         pt  = torch.load(motion_path, map_location="cpu", weights_only=True)
         seq = pt["seq"]
         if len(seq) > 0 and seq[0].item() < BASE_OFFSET:
-            seq = remap_t5_to_qwen(seq)
+            seq = remap_to_qwen(seq)
         return seq
     except Exception as e:
         print(f"[warn] {motion_path}: {e}")
@@ -161,7 +169,7 @@ def main():
     train = records[:cut]
     val   = records[cut:]
 
-    for name, rows in [("train.jsonl", train), ("eval.jsonl", val)]:
+    for name, rows in [("train.jsonl", train), ("val.jsonl", val)]:
         out_path = os.path.join(args.out, name)
         with open(out_path, "w", encoding="utf-8") as f:
             for r in rows:

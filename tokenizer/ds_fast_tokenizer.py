@@ -1,27 +1,26 @@
 """
-DS-FAST: Dual-Stream Frequency-Aware Spatiotemporal Tokenizer
-=============================================================
+DSFT: Dual-Stream Frequency-domain Tokenizer
+============================================
 
-核心设计：
-  1. 将 276-dim ViMoGen 动作分成两路：
-       Base (201-dim): body_pose_6d[0:126] + joints[126:192] +
-                       root_orient_6d[258:264] + root_trans[270:273]
-       Phys (75-dim):  joints_vel[192:258] + root_vel_6d[264:270] +
-                       root_trans_vel[273:276]
+Core design:
+  1. Split 276-dim ViMoGen motion (or 263-dim HumanML3D motion) into two
+     streams along the feature dimension:
+       Base (201-dim, ViMoGen): body_pose_6d[0:126] + joints[126:192] +
+                                root_orient_6d[258:264] + root_trans[270:273]
+       Phys ( 75-dim, ViMoGen): joints_vel[192:258] + root_vel_6d[264:270] +
+                                root_trans_vel[273:276]
 
-  2. 对每路分别沿时间轴做 DCT，截取前 K 个频率行：
-       [T, D] --DCT(axis=0)--> [T, D] --取[:K, :]--> [K, D]
-       K << T：只保留最重要的低/中频成分
+  2. For each stream, apply DCT along the time axis and keep the first K rows:
+       [T, D] --DCT(axis=0)--> [T, D] --[:K, :]--> [K, D]
+       K << T preserves the dominant frequency components.
 
-  3. 将 [K, D] flatten 成 K×D 个整数（scale 量化），
-     用 BPE 编码成可变长 token 序列。
+  3. Flatten [K, D] into K*D integers (after scale + integerize), then encode
+     them with a per-stream BPE tokenizer.
 
-  4. 解码时：BPE decode → [K, D] → zero-pad [T, D] → IDCT → 重建动作
+  4. Decoding inverts each step: BPE^-1 → [K, D] → zero-pad to [T, D] → IDCT.
 
-分析结果（scale=10，200条 ViMoGen 样本）：
-  - Base：range=[-265,294]=559，K=5时字符=1005，重建误差=0.028
-  - Phys：range=[-10,140]=150，K=5时字符=375，重建误差=0.008
-  - Base vocab=4096，Phys vocab=1024（词表不爆炸）
+The two streams have different spectral profiles, so they are tokenized with
+independent codebooks (default base_vocab=4096, phys_vocab=2048).
 """
 
 import json, os
@@ -33,7 +32,7 @@ from tokenizers.trainers import BpeTrainer
 from transformers import PreTrainedTokenizerFast
 
 
-# ── 276-dim 非连续切片 ──────────────────────────────────────
+# ── ViMoGen 276-dim feature-dimension partition ────────────
 BASE_SLICES = [(0, 126), (126, 192), (258, 264), (270, 273)]
 PHYS_SLICES = [(192, 258), (264, 270), (273, 276)]
 BASE_DIM    = 201
@@ -215,10 +214,10 @@ class SingleStreamFASTTokenizer:
         )
 
 
-class DSFASTTokenizer:
+class DSFTTokenizer:
     """
-    Dual-Stream FAST Tokenizer 顶层接口。
-    管理 Base 和 Phys 两个 SingleStreamFASTTokenizer。
+    DSFT (Dual-Stream Frequency-domain Tokenizer) top-level interface.
+    Manages a Base and a Phys SingleStreamFASTTokenizer.
     """
 
     def __init__(
@@ -232,7 +231,7 @@ class DSFASTTokenizer:
     def encode(self, motion: np.ndarray) -> dict:
         """
         motion: [T, 276]
-        返回：{"base_tokens": list[int], "phys_tokens": list[int], "T": int}
+        returns: {"base_tokens": list[int], "phys_tokens": list[int], "T": int}
         """
         import torch
         if isinstance(motion, torch.Tensor):
@@ -247,7 +246,7 @@ class DSFASTTokenizer:
 
     def decode(self, base_tokens: list[int], phys_tokens: list[int], T: int):
         """
-        返回：(base_recon [T,201], phys_recon [T,75])
+        returns: (base_recon [T,201], phys_recon [T,75])
         """
         base_recon = self.base_tok.decode(base_tokens, T)
         phys_recon = self.phys_tok.decode(phys_tokens, T)
@@ -256,10 +255,10 @@ class DSFASTTokenizer:
     def save(self, directory: str):
         self.base_tok.save(os.path.join(directory, "base"))
         self.phys_tok.save(os.path.join(directory, "phys"))
-        print(f"DS-FAST Tokenizer 已保存至: {directory}")
+        print(f"DSFT tokenizer saved to: {directory}")
 
     @classmethod
-    def load(cls, directory: str) -> "DSFASTTokenizer":
+    def load(cls, directory: str) -> "DSFTTokenizer":
         base_tok = SingleStreamFASTTokenizer.load(os.path.join(directory, "base"))
         phys_tok = SingleStreamFASTTokenizer.load(os.path.join(directory, "phys"))
         return cls(base_tok, phys_tok)
@@ -269,13 +268,13 @@ class DSFASTTokenizer:
         cls,
         data: list[np.ndarray],        # list of [T, 276]
         K_base: int   = 5,
-        K_phys: int   = 5,
+        K_phys: int   = 25,
         scale: float  = 10.0,
         base_vocab: int = 4096,
-        phys_vocab: int = 1024,
-    ) -> "DSFASTTokenizer":
+        phys_vocab: int = 2048,
+    ) -> "DSFTTokenizer":
         """
-        从原始 276-dim 动作数据训练双流 tokenizer。
+        Train a dual-stream tokenizer from raw 276-dim motion data.
         """
         base_data, phys_data = [], []
         for motion in data:
@@ -283,16 +282,20 @@ class DSFASTTokenizer:
             base_data.append(b)
             phys_data.append(p)
 
-        print(f"=== 训练 Base Tokenizer (K={K_base}, D=201, vocab={base_vocab}) ===")
+        print(f"=== Training Base tokenizer (K={K_base}, D=201, vocab={base_vocab}) ===")
         base_tok = SingleStreamFASTTokenizer.fit(
             base_data, K=K_base, scale=scale,
             vocab_size=base_vocab, action_dim=BASE_DIM,
         )
 
-        print(f"\n=== 训练 Phys Tokenizer (K={K_phys}, D=75, vocab={phys_vocab}) ===")
+        print(f"\n=== Training Phys tokenizer (K={K_phys}, D=75, vocab={phys_vocab}) ===")
         phys_tok = SingleStreamFASTTokenizer.fit(
             phys_data, K=K_phys, scale=scale,
             vocab_size=phys_vocab, action_dim=PHYS_DIM,
         )
 
         return cls(base_tok, phys_tok)
+
+
+# Backwards-compatible alias for any external code still importing the old name.
+DSFASTTokenizer = DSFTTokenizer

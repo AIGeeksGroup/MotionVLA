@@ -1,8 +1,15 @@
 """
-Tokenize a ViMoGen motion dataset using a trained DS-FAST tokenizer.
+Tokenize a motion dataset using a trained DSFT (Dual-Stream Frequency-domain
+Tokenizer).
 
-Output format (single token sequence in T5 vocab space):
-  [BOS=0, base_1+32100, ..., SEP=32099, phys_1+36196, ..., EOS=1]
+Output format — a single token sequence in the tokenizer's intermediate
+namespace:
+
+  [BOS=0, base_1+BASE_OFFSET, ..., SEP, phys_1+PHYS_OFFSET, ..., EOS=1]
+
+The intermediate IDs (32100/36196/32099) are an internal BPE-friendly
+numbering inherited from the FAST-style tokenizer; `prepare_swift_data.py`
+remaps them into the Qwen vocabulary before ms-swift training.
 
 Usage:
   python tokenizer/tokenize_dataset.py \
@@ -21,11 +28,12 @@ from multiprocessing import Pool
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-T5_VOCAB_SIZE   = 32100
+# Intermediate-namespace offsets (remapped to Qwen IDs in prepare_swift_data.py).
+NAMESPACE_BASE  = 32100
 BASE_VOCAB_SIZE = 4096
 PHYS_VOCAB_SIZE = 2048
-BASE_OFFSET     = T5_VOCAB_SIZE        # 32100
-PHYS_OFFSET     = T5_VOCAB_SIZE + BASE_VOCAB_SIZE  # 36196
+BASE_OFFSET     = NAMESPACE_BASE                     # 32100
+PHYS_OFFSET     = NAMESPACE_BASE + BASE_VOCAB_SIZE   # 36196
 BOS_ID          = 0
 EOS_ID          = 1
 SEP_ID          = 32099
@@ -48,8 +56,8 @@ def process_one(args):
         return {"status": "no_motion", "id": sid}
 
     if not hasattr(process_one, "_tok"):
-        from ds_fast_tokenizer import DSFASTTokenizer
-        process_one._tok = DSFASTTokenizer.load(tok_dir)
+        from ds_fast_tokenizer import DSFTTokenizer
+        process_one._tok = DSFTTokenizer.load(tok_dir)
 
     tok = process_one._tok
     try:
@@ -63,18 +71,18 @@ def process_one(args):
         base_bpe = np.array(result["base_tokens"], dtype=np.int64)
         phys_bpe = np.array(result["phys_tokens"], dtype=np.int64)
 
-        base_t5  = base_bpe + BASE_OFFSET
-        phys_t5  = phys_bpe + PHYS_OFFSET
+        base_ids = base_bpe + BASE_OFFSET
+        phys_ids = phys_bpe + PHYS_OFFSET
 
         seq = np.concatenate([
-            [BOS_ID], base_t5, [SEP_ID], phys_t5, [EOS_ID]
+            [BOS_ID], base_ids, [SEP_ID], phys_ids, [EOS_ID]
         ]).astype(np.int64)
 
         torch.save({
             "T":        T,
             "seq":      torch.tensor(seq, dtype=torch.long),
-            "base_len": len(base_t5),
-            "phys_len": len(phys_t5),
+            "base_len": len(base_ids),
+            "phys_len": len(phys_ids),
         }, out)
 
         return {"status": "ok", "id": sid,

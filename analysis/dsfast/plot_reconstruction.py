@@ -1,5 +1,5 @@
 """
-DS-FAST Reconstruction Quality Visualization
+DSFT Reconstruction Quality Visualization
 Generates figures for the paper from per_sample.csv.
 """
 
@@ -70,10 +70,10 @@ ax.set_ylabel("Number of Sequences", fontsize=11)
 ax.set_title(f"Joint Position Error (MPJPE)\n21 joints × 3D local positions", fontsize=11, fontweight="bold")
 ax.legend(fontsize=10)
 
-plt.suptitle("DS-FAST Tokenizer Reconstruction Quality on HumanML3D Test Set",
+plt.suptitle("DSFT Tokenizer Reconstruction Quality on HumanML3D Test Set",
              fontsize=13, fontweight="bold", y=1.01)
 plt.tight_layout()
-out = os.path.join(OUT_DIR, "dsfast_reconstruction_quality.pdf")
+out = os.path.join(OUT_DIR, "dsft_reconstruction_quality.pdf")
 fig.savefig(out, dpi=150, bbox_inches="tight")
 fig.savefig(out.replace(".pdf", ".png"), dpi=150, bbox_inches="tight")
 plt.close()
@@ -87,12 +87,12 @@ ax.hist(cov_phys * 100, bins=30, alpha=0.75, color="#FF5722",
         label=f"Phys (K={K_PHYS}): mean={cov_phys.mean()*100:.1f}%")
 ax.set_xlabel("DCT Energy Coverage (%)", fontsize=12)
 ax.set_ylabel("Number of Sequences", fontsize=12)
-ax.set_title("DS-FAST DCT Energy Coverage per Sequence\n(Base K=5, Phys K=25)",
+ax.set_title("DSFT DCT Energy Coverage per Sequence\n(Base K=5, Phys K=25)",
              fontsize=12, fontweight="bold")
 ax.legend(fontsize=11)
 ax.xaxis.set_major_formatter(mticker.PercentFormatter())
 plt.tight_layout()
-out2 = os.path.join(OUT_DIR, "dsfast_energy_coverage.pdf")
+out2 = os.path.join(OUT_DIR, "dsft_energy_coverage.pdf")
 fig.savefig(out2, dpi=150, bbox_inches="tight")
 fig.savefig(out2.replace(".pdf", ".png"), dpi=150, bbox_inches="tight")
 plt.close()
@@ -108,7 +108,7 @@ ax.set_ylabel("RMSE (normalized)", fontsize=12)
 ax.set_title("Reconstruction Error vs Sequence Length\n(colored by Base energy coverage)",
              fontsize=12, fontweight="bold")
 plt.tight_layout()
-out3 = os.path.join(OUT_DIR, "dsfast_rmse_vs_length.pdf")
+out3 = os.path.join(OUT_DIR, "dsft_rmse_vs_length.pdf")
 fig.savefig(out3, dpi=150, bbox_inches="tight")
 fig.savefig(out3.replace(".pdf", ".png"), dpi=150, bbox_inches="tight")
 plt.close()

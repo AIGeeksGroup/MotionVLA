@@ -1,195 +1,204 @@
-# MotionQwen 数据格式文档
+# MotionVLA Data Format
 
-## 概览
+This document describes the formats consumed and produced at each stage of the MotionVLA pipeline:
 
-MotionQwen 的数据流分为三层：原始磁盘文件 → 数据集读取 → Collate 拼接为模型输入。
+```
+raw motion (.pt, [T, D])
+   │
+   │  tokenizer/tokenize_dataset.py  (DSFT encode → BPE)
+   ▼
+tokenized motion (.pt, {"seq": [BOS, base…, SEP, phys…, EOS], …})
+   │
+   │  training/prepare_swift_data.py (remap to Qwen vocab + chat template)
+   ▼
+ms-swift JSONL (data/swift/{train,val}.jsonl, motion_tokens.txt)
+   │
+   │  bash training/train_swift_phase{1,2}.sh
+   ▼
+ms-swift checkpoints
+```
 
 ---
 
-## 1. 磁盘原始文件
+## 1. Source dataset JSON
 
-### 1.1 JSON 索引文件（`data/vimogen_full/dataset_wild_v2.json`）
-
-每条样本为一个 JSON 对象：
+Each entry:
 
 ```json
 {
   "id": "171542",
   "text": "The person sits on the floor, leans back, and then falls over.",
-  "motion_path": "data/motions_dsfast_v2/171542.pt",
+  "motion_path": "data/motions/171542.pt",
   "image_path":  "data/images/171542.jpg"
 }
 ```
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `id` | str | 样本唯一 ID |
-| `text` | str | 动作自然语言描述 |
-| `motion_path` | str | DS-FAST tokenizer 预处理后的 `.pt` 文件 |
-| `image_path` | str | 对应场景图片（可选，若不存在则纯文本输入） |
+| Field | Type | Notes |
+|---|---|---|
+| `id` | str | Sample identifier |
+| `text` | str | Natural-language description |
+| `motion_path` | str | Path (relative to `--root`) to a raw motion `.pt` file |
+| `image_path` | str | Optional scene image — when present, used as additional conditioning |
 
-### 1.2 Motion `.pt` 文件（DS-FAST 预处理产物）
+## 2. Raw motion `.pt`
+
+A 2-D float tensor in either of these shapes:
+
+- HumanML3D: `[T, 263]`
+- ViMoGen: `[T, 276]`
+
+May be saved as a bare tensor or as `{"motion": tensor}`.
+
+### 276-dim ViMoGen layout
+
+```
+0:126   body_pose_6d      (21 joints × 6D rotation)
+126:192 joints_xyz        (22 joints × 3 coords)
+192:258 joints_vel        (22 joints × 3 velocities)
+258:264 root_orient_6d
+264:270 root_vel_6d
+270:273 root_trans
+273:276 root_trans_vel
+```
+
+DSFT splits this into:
+
+```
+Base (201) = [0:126] + [126:192] + [258:264] + [270:273]
+Phys (75)  = [192:258] + [264:270] + [273:276]
+```
+
+## 3. Tokenized motion `.pt` (DSFT output)
+
+Produced by `tokenizer/tokenize_dataset.py`:
 
 ```python
 pt = torch.load("171542.pt")
-# keys: ['T', 'seq', 'base_len', 'phys_len']
+# {
+#   "T":        T,                 # original number of frames
+#   "seq":      LongTensor[L],     # [BOS, base…, SEP, phys…, EOS]
+#   "base_len": int,               # number of base tokens
+#   "phys_len": int,               # number of phys tokens
+# }
 ```
 
-| Key | Shape | 说明 |
-|-----|-------|------|
-| `seq` | `(523,)` int64 | T5 空间 token ID 序列，格式见下 |
-| `T` | scalar | 原始动作帧数 |
-| `base_len` | scalar | Base token 数量（本例 500） |
-| `phys_len` | scalar | Phys token 数量（本例 20） |
-
-**T5 空间序列格式：**
-```
-seq = [BOS=0, base_1, base_2, ..., base_N, SEP=32099, phys_1, ..., phys_M, EOS=1]
-```
-
-实际值示例（本例 id=171542）：
-```
-seq[:5] = [0, 33739, 33520, 33641, 33967]  ← BOS + 前4个 base token
-seq[501]= 32099  ← SEP
-seq[522]= 1      ← EOS
-```
-
----
-
-## 2. 数据集读取层（`MotionQwenDataset`）
-
-读取后将 T5 空间 token ID **重映射**到 Qwen 扩容词表空间：
-
-| T5 Token | T5 ID | Qwen ID | 说明 |
-|----------|--------|---------|------|
-| BOS | 0 | **254464** | MOTION_BOS |
-| SEP | 32099 | **254465** | MOTION_SEP |
-| EOS | 1 | **254466** | MOTION_EOS |
-| Base token x | `32100 + x` | `248320 + x` | x ∈ [0, 4095] |
-| Phys token x | `36196 + x` | `252416 + x` | x ∈ [0, 2047] |
-
-重映射后的 `motion_ids`（Qwen 空间）：
-```
-[254464, 249959, 249740, ...(500个base)..., 254465, 252677, ...(20个phys)..., 254466]
-  BOS     base_1  base_2                    SEP     phys_1                    EOS
-```
-
-Base BPE ID 实际分布范围：约 **1496–2045**（跳绳、行走等常见动作），phys 约 **0–2000**。
-
----
-
-## 3. 训练数据（Collate 后的 Batch）
-
-以样本 id=171542 为例，`collate_fn_qwen` 输出：
-
-### 3.1 `input_ids`（长度 628）
+`seq` is a single concatenated sequence in the **tokenizer's intermediate namespace**:
 
 ```
-[  0 ..  104 ]   Qwen prompt tokens（105 个）
-                  = Qwen chat template("Generate motion for: <text>") + 图像 patch tokens
-[ 105        ]   MOTION_BOS = 254464
-[ 106 .. 605 ]   Base tokens（500 个），Qwen ID 范围 249816~250365（BPE 1496~2045）
-[ 606        ]   MOTION_SEP = 254465
-[ 607 .. 626 ]   Phys tokens（20 个），Qwen ID 范围 252416~254463
-[ 627        ]   MOTION_EOS = 254466
+seq = [ BOS=0, base_1+32100, …, base_N+32100, SEP=32099,
+        phys_1+36196, …, phys_M+36196, EOS=1 ]
 ```
 
-### 3.2 `labels`（长度 628，**左移一位，修复 off-by-one**）
+Offsets:
+
+| Marker | Intermediate ID |
+|---|---|
+| `BOS` | `0` |
+| `EOS` | `1` |
+| `SEP` | `32099` |
+| Base BPE id `b` | `32100 + b`  (`b ∈ [0, base_vocab)`) |
+| Phys BPE id `p` | `36196 + p`  (`p ∈ [0, phys_vocab)`) |
+
+> The `32100`/`36196` numbers are an internal, BPE-friendly numbering inherited from the FAST-style tokenizer; they are **not** related to any T5 model. They are remapped to Qwen IDs in the next step.
+
+## 4. ms-swift JSONL (after `prepare_swift_data.py`)
+
+Each row uses the chat-format expected by ms-swift:
+
+```json
+{
+  "messages": [
+    {"role": "user", "content": [
+      {"type": "image", "image": "data/images/171542.jpg"},
+      {"type": "text",  "text": "Generate motion for: <description>"}
+    ]},
+    {"role": "assistant", "content": "<mot_bos><mot_b_1639><mot_b_1420>…<mot_sep><mot_p_0261>…<mot_eos>"}
+  ]
+}
+```
+
+If `image_path` is absent the user content is a plain string `"Generate motion for: <description>"`.
+
+### Special-token vocabulary (`motion_tokens.txt`)
+
+`prepare_swift_data.py` writes a `motion_tokens.txt` containing 8195 entries that ms-swift adds via `--new_special_tokens`:
 
 ```
-[   0 .. 104 ]   -100（prompt 全部 ignore，不参与 loss）
-[ 105        ]   249959 = base_1（BPE ID 1639）← BOS 位置预测第一个 base token
-[ 106        ]   249740 = base_2（BPE ID 1420）
-   ...
-[ 605        ]   MOTION_SEP = 254465            ← 最后一个 base 位置预测 SEP
-[ 606        ]   phys_1 = 252677（BPE 261）
-   ...
-[ 626        ]   MOTION_EOS = 254466            ← 最后一个 phys 位置预测 EOS
-[ 627        ]   -100（EOS 位置无 next token）
+<mot_bos>
+<mot_sep>
+<mot_eos>
+<mot_b_0000>
+<mot_b_0001>
+…
+<mot_b_4095>
+<mot_p_0000>
+<mot_p_0001>
+…
+<mot_p_4095>
 ```
 
-> **关键**：`labels[i]` 是位置 `i+1` 的 token，因为 `logits[i]` 预测的是下一个位置。
+### Qwen vocabulary layout (after extension)
 
-### 3.3 其他字段
+```
+[ 0,        V_LM       )  ← original Qwen vocabulary
+[ 248320,   252416     )  ← Base motion tokens   (4096)
+[ 252416,   256512     )  ← Phys motion tokens   (4096; ≤2048 actually used by default DSFT)
+  256512                  ← M_BOS
+  256513                  ← M_SEP
+  256514                  ← M_EOS
+```
 
-| 字段 | Shape | 说明 |
-|------|-------|------|
-| `attention_mask` | `(628,)` | 全 1（有效位置） |
-| `pixel_values` | `(288, 1536)` | 图像 patch 特征（由 Qwen processor 生成） |
-| `image_grid_thw` | `(1, 3)` = `[1, 12, 24]` | 图像 grid：1帧 × 12行 × 24列 patch |
+(The exact placement is fixed in `training/prepare_swift_data.py` — `BASE_OFFSET=248320`, `PHYS_OFFSET=252416`, `MOTION_BOS_ID=256512`, etc.)
 
-**有效 loss 位置数**：522（= 500 base + 1 SEP + 20 phys + 1 EOS，不含 prompt 和 BOS）
+## 5. Training-time tensor shapes (during ms-swift)
 
----
+ms-swift assembles the tokenized chat into:
 
-## 4. 推理数据格式
+| Tensor | Shape | Notes |
+|---|---|---|
+| `input_ids` | `(B, L)` | `<system>` + `<user>` + `<assistant>` + EOS, padded to `max_length` |
+| `attention_mask` | `(B, L)` | Padding mask |
+| `labels` | `(B, L)` | `-100` outside the assistant span; motion tokens elsewhere |
+| `pixel_values` | `(N, P)` | Optional, when `image` is provided |
+| `image_grid_thw` | `(B', 3)` | Optional, image grid metadata |
 
-推理时**不需要 motion 数据**，只需 text + 可选 image。
+Loss is the standard masked next-token cross-entropy over the assistant span (motion-token positions and structural markers only).
 
-### 4.1 输入构建
+## 6. Inference output
+
+`generate(...)` produces a Qwen-vocabulary stream of the form:
+
+```
+[ <prompt tokens> , M_BOS , b_1 , … , b_N , M_SEP , p_1 , … , p_M , M_EOS ]
+```
+
+A phase-aware logit mask is applied during decoding:
+
+- before `M_SEP`: only Base tokens (`248320`–`252415`) or `M_SEP` are allowed;
+- after  `M_SEP`: only Phys tokens (`252416`–`256511`) or `M_EOS` are allowed.
+
+To reconstruct the motion:
 
 ```python
-messages = [{"role": "user", "content": [
-    {"type": "image", "image": "path/to/image.jpg", "max_pixels": 3136},
-    {"type": "text",  "text": "Generate motion for: A person walks forward"},
-]}]
+base_bpe = [t - 248320 for t in stream if 248320 <= t < 252416]
+phys_bpe = [t - 252416 for t in stream if 252416 <= t < 256512]
 
-# processor 处理后：
-enc = processor(text=[prompt], images=img_inputs, ...)
-# input_ids shape: (1, 101)   ← 仅 prompt，比训练时短（无 motion 序列）
-# pixel_values shape: (N_patches, 1536)
+base_recon = dsft.base_tok.decode(base_bpe, T)   # [T, 201]
+phys_recon = dsft.phys_tok.decode(phys_bpe, T)   # [T, 75]
+
+motion = recombine(base_recon, phys_recon)        # [T, 276]
 ```
 
-### 4.2 推理序列生成过程
+## 7. Quick reference
 
-```
-输入:  [prompt tokens (101)] + [MOTION_BOS=254464]
-          ↓ generate_motion()
-生成:  base_1, base_2, ..., base_N, MOTION_SEP, phys_1, ..., phys_M, MOTION_EOS
-```
-
-生成时使用 **phase-aware logit mask**：
-- Base 阶段：只允许 token ∈ [248320, 252416) ∪ {MOTION_SEP=254465}
-- Phys 阶段（SEP 后）：只允许 token ∈ [252416, 254464) ∪ {MOTION_EOS=254466}
-
-### 4.3 输出解析
-
-```python
-# 生成序列示例（正确推理时）：
-gen = [254464, 249959, 249740, ..., 254465, 252677, ..., 254466]
-#     BOS     base_1  base_2        SEP     phys_1        EOS
-
-# 解码回 BPE ID：
-base_bpe = [t - 248320 for t in gen if 248320 <= t < 252416]  # e.g. [1639, 1420, ...]
-phys_bpe = [t - 252416 for t in gen if 252416 <= t < 254464]  # e.g. [261, 360, ...]
-
-# 再经 DS-FAST detokenizer 还原为 276 维动作序列
-```
-
----
-
-## 5. 词表设计总览
-
-```
-Qwen 原始词表:   [0,        248320)  ← 语言 token（冻结）
-Base motion:     [248320,   252416)  ← 4096 个，编码身体语义（低频 DCT）
-Phys motion:     [252416,   254464)  ← 2048 个，编码根节点物理（全局锚点）
-特殊 token:      254464 = MOTION_BOS
-                 254465 = MOTION_SEP
-                 254466 = MOTION_EOS
-总词表大小:       254467
-```
-
----
-
-## 6. 关键数字速查
-
-| 参数 | 值 |
-|------|----|
-| 训练集大小（全量） | 41,961 条 |
-| 当前训练子集 | 1,000 条（800 train / 200 val） |
-| 典型序列总长 | 600–700 tokens（含 prompt） |
-| 典型 base token 数 | 400–550 |
-| 典型 phys token 数 | 15–60 |
-| 最大序列截断长 | 1024 tokens |
-| 图像 patch 数 | 288（≈ 3136 pixels / 28×28 × 3 channels） |
+| Constant | Value | Defined in |
+|---|---|---|
+| `K_base` (default) | 5 | `tokenizer/train_tokenizer.py` |
+| `K_phys` (default) | 25 (paper) / 15 (script default — override at training time) | `tokenizer/train_tokenizer.py` |
+| `base_vocab` | 4096 | DSFT |
+| `phys_vocab` | 2048 | DSFT |
+| `BASE_OFFSET` | 248320 | `training/prepare_swift_data.py` |
+| `PHYS_OFFSET` | 252416 | `training/prepare_swift_data.py` |
+| `MOTION_BOS_ID` | 256512 | `training/prepare_swift_data.py` |
+| `MOTION_SEP_ID` | 256513 | `training/prepare_swift_data.py` |
+| `MOTION_EOS_ID` | 256514 | `training/prepare_swift_data.py` |

@@ -1,13 +1,13 @@
 """
-DS-FAST Tokenizer training script.
-Trains the dual-stream tokenizer on 276-dim ViMoGen motion data.
+DSFT (Dual-Stream Frequency-domain Tokenizer) training script.
+Trains the dual-stream tokenizer on raw 276-dim ViMoGen motion data.
 
 Usage:
   python tokenizer/train_tokenizer.py \
       --motiondata_root data/motions \
       --output_dir      tokenizer/checkpoints \
       --max_samples     20000 \
-      --K_base 5 --K_phys 15 \
+      --K_base 5 --K_phys 25 \
       --base_vocab 4096 --phys_vocab 2048
 """
 
@@ -17,7 +17,7 @@ import numpy as np
 from tqdm import tqdm
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from ds_fast_tokenizer import DSFASTTokenizer
+from ds_fast_tokenizer import DSFTTokenizer
 
 
 def load_motions(motiondata_root: str, max_samples: int = None) -> list:
@@ -59,7 +59,7 @@ def main():
     parser.add_argument("--output_dir",      default="tokenizer/checkpoints")
     parser.add_argument("--max_samples",     type=int,   default=20000)
     parser.add_argument("--K_base",          type=int,   default=5)
-    parser.add_argument("--K_phys",          type=int,   default=15)
+    parser.add_argument("--K_phys",          type=int,   default=25)
     parser.add_argument("--scale",           type=float, default=10.0)
     parser.add_argument("--base_vocab",      type=int,   default=4096)
     parser.add_argument("--phys_vocab",      type=int,   default=2048)
@@ -78,7 +78,7 @@ def main():
     print(f"\nTraining: K_base={args.K_base}, K_phys={args.K_phys}, "
           f"scale={args.scale}, base_vocab={args.base_vocab}, phys_vocab={args.phys_vocab}")
 
-    tokenizer = DSFASTTokenizer.fit(
+    tokenizer = DSFTTokenizer.fit(
         motions,
         K_base=args.K_base,
         K_phys=args.K_phys,
