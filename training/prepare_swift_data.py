@@ -14,7 +14,7 @@ Usage:
       --root   . \
       --out    data/swift \
       --split  0.9 \
-      --image_output_dir /remote/path/to/images
+      --image_output_dir data/swift/images
 """
 
 import os, json, random, argparse

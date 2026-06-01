@@ -16,7 +16,7 @@
 ### 依赖安装
 
 ```bash
-cd /path/to/motionvla
+# Run from the MotionVLA repository root
 pip install torch torchvision transformers peft
 pip install scipy scikit-learn tqdm
 pip install qwen-vl-utils  # Qwen-VL 图像处理工具
@@ -51,8 +51,8 @@ snapshot_download('wbz0505/t2m-ft-from-GSPretrained-base', local_dir='checkpoint
   {
     "id": "sample_001",
     "text": "A person walks forward and waves their hand",
-    "image_path": "/absolute/path/to/scene.jpg",
-    "motion_path": "/absolute/path/to/motion.pt"
+    "image_path": "data/images/scene.jpg",
+    "motion_path": "data/motions/motion.pt"
   }
 ]
 ```
@@ -110,14 +110,14 @@ MotionVLA 使用两套 Tokenizer，按需选择：
 **训练命令：**
 
 ```bash
-cd /path/to/motionvla
+# Run from the MotionVLA repository root
 python tokenizer/dct_vq/train_tokenizer.py
 ```
 
 **配置参数**（修改 `train_tokenizer.py` 顶部）：
 
 ```python
-MOCAP_DIR  = '/path/to/motiondata/motions/optical_mocap'
+MOCAP_DIR  = 'data/motiondata/motions/optical_mocap'
 CKPT_DIR   = 'tokenizer/dct_vq/checkpoints'
 N_TRAIN    = 5000   # 训练样本数（越多越好，5000约需5分钟）
 K          = 17     # 低频系数个数（90%能量点，建议不改）

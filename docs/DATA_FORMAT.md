@@ -16,8 +16,8 @@ MotionQwen 的数据流分为三层：原始磁盘文件 → 数据集读取 →
 {
   "id": "171542",
   "text": "The person sits on the floor, leans back, and then falls over.",
-  "motion_path": "/abs/path/motions_dsfast_v2/171542.pt",
-  "image_path":  "/abs/path/images/171542.jpg"
+  "motion_path": "data/motions_dsfast_v2/171542.pt",
+  "image_path":  "data/images/171542.jpg"
 }
 ```
 
