@@ -7,7 +7,7 @@ This is the official repository for the paper:
 >
 > \*Equal contribution. †Project lead. <sup>#</sup>Corresponding author.
 >
-> ### [Paper]() | [Website](https://aigeeksgroup.github.io/MotionVLA/) | [HuggingFace](https://huggingface.co/AIGeeksGroup/MotionVLA)
+> ### [Paper](https://arxiv.org/abs/2606.15142) | [Website](https://aigeeksgroup.github.io/MotionVLA/) | [HuggingFace](https://huggingface.co/AIGeeksGroup/MotionVLA)
 
 > [!NOTE]
 > 💪 MotionVLA generates humanoid motion from a scene image and a text instruction by combining a **Qwen3.5** autoregressive backbone with **DSFT (Dual-Stream Frequency-domain Tokenizer)**, which decouples low-frequency pose semantics from high-frequency physical dynamics.
@@ -15,9 +15,10 @@ This is the official repository for the paper:
 ## ✏️ Citation
 If you find our code or paper helpful, please consider starring ⭐ us and citing:
 ```bibtex
-@article{motionvla2026,
+@article{zhang2026motionvla,
   title={MotionVLA: Vision-Language-Action Model for Humanoid Motion},
-  author={Zhang, Nonghai and Zhai, Siyu and Zhang, Zeyu and Tang, Hao},
+  author={Zhang, Nonghai and Zhai, Siyu and Li, Yanjun and Zhang, Zeyu and Yin, Zhihan and Guo, Yandong and Shi, Boxin and Tang, Hao},
+  journal={arXiv preprint arXiv:2606.15142},
   year={2026}
 }
 ```
