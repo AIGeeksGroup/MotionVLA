@@ -7,7 +7,7 @@ This is the official repository for the paper:
 >
 > \*Equal contribution. †Project lead. <sup>#</sup>Corresponding author.
 >
-> ### [Paper](https://arxiv.org/abs/2606.15142) | [Website](https://aigeeksgroup.github.io/MotionVLA/) | [HuggingFace](https://huggingface.co/AIGeeksGroup/MotionVLA)
+> ### [Paper](https://arxiv.org/abs/2606.15142) | [Website](https://aigeeksgroup.github.io/MotionVLA/) | [Model](https://huggingface.co/AIGeeksGroup/MotionVLA)
 
 > [!NOTE]
 > 💪 MotionVLA generates humanoid motion from a scene image and a text instruction by combining a **Qwen3.5** autoregressive backbone with **DSFT (Dual-Stream Frequency-domain Tokenizer)**, which decouples low-frequency pose semantics from high-frequency physical dynamics.
