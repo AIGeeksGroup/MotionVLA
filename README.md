@@ -3,7 +3,7 @@
 This is the official repository for the paper:
 > **MotionVLA: Vision-Language-Action Model for Humanoid Motion**
 >
-> [Nonghai Zhang](https://github.com/sleepyDogseasea)\*, [Siyu Zhai](https://github.com/almightyfish)\*, [Yanjun Li](https://github.com/yanjun711)\*, [Zeyu Zhang](https://steve-zeyu-zhang.github.io/)\*, [Zhihan Yin](https://github.com/Hans-M-Yin), [Yandong Guo](https://scholar.google.com/citations?user=fWDoWsQAAAAJ&hl=en), [Boxin Shi](https://scholar.google.com/citations?user=K1LjZxcAAAAJ&hl=en), and [Hao Tang](https://ha0tang.github.io/)<sup>#</sup>
+> [Nonghai Zhang](https://github.com/sleepyDogseasea)\*, [Siyu Zhai](https://github.com/almightyfish)\*, [Yanjun Li](https://github.com/yanjun711)\*, [Zeyu Zhang](https://steve-zeyu-zhang.github.io/)\*†, [Zhihan Yin](https://github.com/Hans-M-Yin), [Yandong Guo](https://scholar.google.com/citations?user=fWDoWsQAAAAJ&hl=en), [Boxin Shi](https://scholar.google.com/citations?user=K1LjZxcAAAAJ&hl=en), and [Hao Tang](https://ha0tang.github.io/)<sup>#</sup>
 >
 > \*Equal contribution. †Project lead. <sup>#</sup>Corresponding author.
 >
